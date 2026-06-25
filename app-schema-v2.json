@@ -1,0 +1,49 @@
+{
+  "name": "一抹金蓝自动审片系统 V2",
+  "needAuth": false,
+  "tables": [
+    {
+      "tableName": "projects",
+      "description": "审片项目表",
+      "columns": [
+        {"columnName": "id", "columnType": "INT", "columnComment": "主键ID", "isRequired": true, "isPrimary": true, "isShow": true},
+        {"columnName": "project_name", "columnType": "VARCHAR(255)", "columnComment": "项目名称", "isRequired": true, "isPrimary": false, "isShow": true},
+        {"columnName": "script_file", "columnType": "files", "columnComment": "剧本文件", "isRequired": false, "isPrimary": false, "isShow": true},
+        {"columnName": "video_file", "columnType": "videos", "columnComment": "成片视频", "isRequired": false, "isPrimary": false, "isShow": true},
+        {"columnName": "status", "columnType": "VARCHAR(50)", "columnComment": "审核状态", "isRequired": true, "isPrimary": false, "isShow": true},
+        {"columnName": "overall_score", "columnType": "DECIMAL", "columnComment": "总体评分（0-100）", "isRequired": false, "isPrimary": false, "isShow": true},
+        {"columnName": "total_scenes", "columnType": "INT", "columnComment": "总场景数", "isRequired": false, "isPrimary": false, "isShow": true},
+        {"columnName": "pass_count", "columnType": "INT", "columnComment": "通过数", "isRequired": false, "isPrimary": false, "isShow": true},
+        {"columnName": "warning_count", "columnType": "INT", "columnComment": "警告数", "isRequired": false, "isPrimary": false, "isShow": true},
+        {"columnName": "fail_count", "columnType": "INT", "columnComment": "不通过数", "isRequired": false, "isPrimary": false, "isShow": true},
+        {"columnName": "summary_report", "columnType": "FULLTEXT", "columnComment": "AI审核总结报告（JSON）", "isRequired": false, "isPrimary": false, "isShow": false},
+        {"columnName": "reviewer_notes", "columnType": "FULLTEXT", "columnComment": "人工审核备注", "isRequired": false, "isPrimary": false, "isShow": false},
+        {"columnName": "created_at", "columnType": "DATETIME", "columnComment": "创建时间", "isRequired": false, "isPrimary": false, "isShow": true},
+        {"columnName": "updated_at", "columnType": "DATETIME", "columnComment": "更新时间", "isRequired": false, "isPrimary": false, "isShow": true}
+      ]
+    },
+    {
+      "tableName": "scenes",
+      "description": "场景审核结果表 — 含音画同步+字幕检查",
+      "columns": [
+        {"columnName": "id", "columnType": "INT", "columnComment": "主键ID", "isRequired": true, "isPrimary": true, "isShow": true},
+        {"columnName": "project_id", "columnType": "quote", "columnComment": "关联项目ID", "isRequired": true, "isPrimary": false, "isShow": true, "referenceTableName": "projects", "showName": "project_name"},
+        {"columnName": "scene_index", "columnType": "INT", "columnComment": "场景序号", "isRequired": true, "isPrimary": false, "isShow": true},
+        {"columnName": "script_text", "columnType": "FULLTEXT", "columnComment": "剧本对应场景描述", "isRequired": false, "isPrimary": false, "isShow": true},
+        {"columnName": "frame_url", "columnType": "VARCHAR(1024)", "columnComment": "关键帧图片URL", "isRequired": false, "isPrimary": false, "isShow": true},
+        {"columnName": "consistency_score", "columnType": "DECIMAL", "columnComment": "剧本画面一致性评分（0-100）", "isRequired": false, "isPrimary": false, "isShow": true},
+        {"columnName": "quality_issues", "columnType": "FULLTEXT", "columnComment": "画面质量问题（JSON数组）", "isRequired": false, "isPrimary": false, "isShow": false},
+        {"columnName": "audio_sync_score", "columnType": "DECIMAL", "columnComment": "音画同步评分（0-100）", "isRequired": false, "isPrimary": false, "isShow": true},
+        {"columnName": "audio_sync_issues", "columnType": "FULLTEXT", "columnComment": "音画同步问题描述", "isRequired": false, "isPrimary": false, "isShow": false},
+        {"columnName": "subtitle_text", "columnType": "FULLTEXT", "columnComment": "提取的字幕文本", "isRequired": false, "isPrimary": false, "isShow": false},
+        {"columnName": "subtitle_typo_count", "columnType": "INT", "columnComment": "字幕错别字数量", "isRequired": false, "isPrimary": false, "isShow": true},
+        {"columnName": "subtitle_typo_issues", "columnType": "FULLTEXT", "columnComment": "字幕错别字详情（JSON数组）", "isRequired": false, "isPrimary": false, "isShow": false},
+        {"columnName": "subtitle_consistency_score", "columnType": "DECIMAL", "columnComment": "字幕剧本一致性评分（0-100）", "isRequired": false, "isPrimary": false, "isShow": true},
+        {"columnName": "subtitle_consistency_issues", "columnType": "FULLTEXT", "columnComment": "字幕剧本不一致之处（JSON数组）", "isRequired": false, "isPrimary": false, "isShow": false},
+        {"columnName": "ai_comment", "columnType": "FULLTEXT", "columnComment": "AI审核评语", "isRequired": false, "isPrimary": false, "isShow": false},
+        {"columnName": "status", "columnType": "VARCHAR(20)", "columnComment": "审核结果：pass/warning/fail", "isRequired": true, "isPrimary": false, "isShow": true},
+        {"columnName": "created_at", "columnType": "DATETIME", "columnComment": "创建时间", "isRequired": false, "isPrimary": false, "isShow": true}
+      ]
+    }
+  ]
+}
