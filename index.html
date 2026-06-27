@@ -279,30 +279,34 @@
         //  Text Extraction Helpers
         // ============================================================
         async function fetchTextFromUrl(url) {
-            try {
-                const resp = await fetch(url);
-                const contentType = resp.headers.get('content-type') || '';
-                if (contentType.includes('text') || url.endsWith('.txt') || url.endsWith('.md')) {
-                    return await resp.text();
-                }
-                // For other types, try to get as text
-                // Check content type for binary files
+            // Try via CORS proxy if OBS blocks direct fetch
+            const doFetch = async (u) => {
+                const resp = await fetch(u);
                 const ct = (resp.headers.get('content-type') || '').toLowerCase();
-                // DOCX: try mammoth
-                if (url.endsWith('.docx') || ct.includes('officedocument') || ct.includes('word')) {
+                if (u.endsWith('.docx') || ct.includes('officedocument') || ct.includes('word')) {
                     if (typeof mammoth !== 'undefined') {
                         const arrayBuffer = await resp.arrayBuffer();
                         const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
                         return result.value;
                     }
                 }
-                // Plain text
                 const text = await resp.text();
-                if (text.length > 50 && !text.includes('�')) return text;
+                if (text.length > 50 && !text.includes('ï¿½')) return text;
                 return text;
+            };
+            try {
+                return await doFetch(url);
             } catch(e) {
-                console.error('Failed to fetch text from URL:', url, e);
-                throw e;
+                // OBS CORS blocked — try via corsproxy.io
+                const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
+                try {
+                    const text = await doFetch(proxyUrl);
+                    return text;
+                } catch(e2) {
+                    // Try allorigins as fallback
+                    const proxy2 = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+                    return await doFetch(proxy2);
+                }
             }
         }
 
@@ -721,7 +725,21 @@
                     let scriptUrl = null, videoUrl = null;
                     const scriptFile = document.getElementById('script-file').files[0];
                     const videoFile = document.getElementById('video-file').files[0];
+                    let scriptContent = '';
                     if (scriptFile) {
+                        progressText.textContent = '读取剧本文件...';
+                        try {
+                            // Extract text from the uploaded file directly
+                            if (scriptFile.name.endsWith('.docx') && typeof mammoth !== 'undefined') {
+                                const arrayBuffer = await scriptFile.arrayBuffer();
+                                const result = await mammoth.extractRawText({ arrayBuffer });
+                                scriptContent = result.value;
+                            } else {
+                                scriptContent = await scriptFile.text();
+                            }
+                        } catch(e) {
+                            console.warn('Failed to extract script text:', e);
+                        }
                         progressText.textContent = '上传剧本文件...';
                         scriptUrl = await uploadFile(scriptFile);
                     }
@@ -737,6 +755,7 @@
                     const insertData = {
                         project_name: name,
                         status: 'pending',
+                        reviewer_notes: scriptContent || '',
                         created_at: new Date().toISOString().slice(0,19).replace('T', ' ')
                     };
                     if (scriptUrl) insertData.script_file = [scriptUrl];
@@ -833,7 +852,11 @@
 
                 // Get script text
                 let scriptText = '';
-                if (project.script_file && project.script_file.length > 0) {
+                // Try stored text first (from 'reviewer_notes' - uploaded during project creation)
+                if (project.reviewer_notes && project.reviewer_notes.length > 50) {
+                    scriptText = project.reviewer_notes;
+                }
+                if (!scriptText && project.script_file && project.script_file.length > 0) {
                     for (const entry of project.script_file) {
                         try {
                             const fileUrl = typeof entry === 'string' ? entry : (entry.url || entry);
