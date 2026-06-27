@@ -729,26 +729,46 @@
                     if (scriptFile) {
                         progressText.textContent = '读取剧本文件...';
                         try {
-                            // Extract text from the uploaded file directly
+                            // Use FileReader for WeChat browser compatibility (arrayBuffer() not supported)
+                            const fileData = await new Promise((resolve, reject) => {
+                                const reader = new FileReader();
+                                reader.onload = () => resolve(reader.result);
+                                reader.onerror = () => reject(new Error('FileReader error'));
+                                reader.readAsArrayBuffer(scriptFile);
+                            });
                             if (scriptFile.name.endsWith('.docx') && typeof mammoth !== 'undefined') {
-                                const arrayBuffer = await scriptFile.arrayBuffer();
-                                const result = await mammoth.extractRawText({ arrayBuffer });
+                                const result = await mammoth.extractRawText({ arrayBuffer: fileData });
                                 scriptContent = result.value;
                             } else {
-                                scriptContent = await scriptFile.text();
+                                // For text files, read as text
+                                const textData = await new Promise((resolve) => {
+                                    const r = new FileReader();
+                                    r.onload = () => resolve(r.result);
+                                    r.readAsText(scriptFile);
+                                });
+                                scriptContent = textData;
                             }
                         } catch(e) {
                             console.warn('Failed to extract script text:', e);
                         }
                         progressText.textContent = '上传剧本文件...';
-                        scriptUrl = await uploadFile(scriptFile);
+                        try {
+                            scriptUrl = await uploadFile(scriptFile);
+                        } catch(uploadErr) {
+                            console.warn('Upload failed, creating project without file URL:', uploadErr);
+                            showToast('文件上传失败，已保存剧本文本', 'warning');
+                        }
                     }
                     if (videoFile) {
                         progressText.textContent = '上传成片视频...';
-                        videoUrl = await uploadFile(videoFile);
+                        try {
+                            videoUrl = await uploadFile(videoFile);
+                        } catch(uploadErr) {
+                            console.warn('Video upload failed:', uploadErr);
+                        }
                     }
-                    if (!scriptUrl && !videoUrl) {
-                        showToast('请至少上传剧本或成片视频', 'warning');
+                    if (!scriptContent && !scriptUrl && !videoUrl) {
+                        showToast('请至少上传剧本文件', 'warning');
                         btn.disabled = false; progress.classList.add('hidden'); return;
                     }
                     progressText.textContent = '创建审片项目...';
