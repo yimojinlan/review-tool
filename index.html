@@ -6,7 +6,7 @@
     <title>一抹金蓝 · 自动审片系统</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
     <script>
     tailwind.config = {
         theme: {
@@ -730,21 +730,24 @@
                     const scriptFile = document.getElementById('script-file').files[0];
                     const videoFile = document.getElementById('video-file').files[0];
                     let scriptContent = '';
-                    if (scriptFile) {
-                        progressText.textContent = '读取剧本文件...';
+                    
+                    // Step 1: Read from textarea
+                    scriptContent = document.getElementById('script-text').value.trim();
+                    
+                    // Step 2: If no textarea content, try to extract from file (skip upload)
+                    if (!scriptContent && scriptFile) {
+                        progressText.textContent = '读取上传文件...';
                         try {
-                            // Use FileReader for WeChat browser compatibility (arrayBuffer() not supported)
                             const fileData = await new Promise((resolve, reject) => {
                                 const reader = new FileReader();
                                 reader.onload = () => resolve(reader.result);
-                                reader.onerror = () => reject(new Error('FileReader error'));
+                                reader.onerror = () => reject(new Error('文件读取失败'));
                                 reader.readAsArrayBuffer(scriptFile);
                             });
                             if (scriptFile.name.endsWith('.docx') && typeof mammoth !== 'undefined') {
                                 const result = await mammoth.extractRawText({ arrayBuffer: fileData });
                                 scriptContent = result.value;
                             } else {
-                                // For text files, read as text
                                 const textData = await new Promise((resolve) => {
                                     const r = new FileReader();
                                     r.onload = () => resolve(r.result);
@@ -755,26 +758,9 @@
                         } catch(e) {
                             console.warn('Failed to extract script text:', e);
                         }
-                        progressText.textContent = '上传剧本文件...';
-                        try {
-                            scriptUrl = await uploadFile(scriptFile);
-                        } catch(uploadErr) {
-                            console.warn('Upload failed, creating project without file URL:', uploadErr);
-                            showToast('文件上传失败，已保存剧本文本', 'warning');
-                        }
                     }
-                    if (videoFile) {
-                        progressText.textContent = '上传成片视频...';
-                        try {
-                            videoUrl = await uploadFile(videoFile);
-                        } catch(uploadErr) {
-                            console.warn('Video upload failed:', uploadErr);
-                        }
-                    }
-                    // Read textarea content (highest priority) - must be before validation
-                    const textareaVal = document.getElementById('script-text').value.trim();
-                    if (textareaVal) scriptContent = textareaVal;
-                    if (!scriptContent && !scriptUrl && !videoUrl) {
+                    
+                    if (!scriptContent) {
                         showToast('请填写剧本内容或上传剧本文件', 'warning');
                         btn.disabled = false; progress.classList.add('hidden'); return;
                     }
@@ -786,8 +772,14 @@
                         reviewer_notes: scriptContent || '',
                         created_at: new Date().toISOString().slice(0,19).replace('T', ' ')
                     };
-                    if (scriptUrl) insertData.script_file = [scriptUrl];
-                    if (videoUrl) insertData.video_file = [videoUrl];
+                    if (scriptFile) {
+                        // Try upload in background - don't block on it
+                        uploadFile(scriptFile).then(url => {
+                            if (url) {
+                                client.db.from('projects').update().set({script_file: [url]}).eq('project_name', name);
+                            }
+                        }).catch(() => {});
+                    }
                     const res = await client.db.from('projects').insert().values(insertData);
                     if (res.success) {
                         showToast('审片项目创建成功！', 'success');
@@ -796,7 +788,7 @@
                         throw new Error(res.message || '创建失败');
                     }
                 } catch (err) {
-                    showToast(err.message || '操作失败', 'error');
+                    showToast('' + (err?.message || err || '操作失败'), 'error');
                     btn.disabled = false;
                     progress.classList.add('hidden');
                 }
@@ -1476,5 +1468,6 @@
         window.addEventListener('DOMContentLoaded', render);
         render();
     </script>
+    <div class="fixed bottom-2 right-2 text-[10px] text-gray-300 opacity-50 select-none">v2.1</div>
 </body>
 </html>
