@@ -547,7 +547,13 @@
             showLoading('加载审片列表...');
             const res = await client.db.from('projects').list().order('created_at', 'desc');
             hideLoading();
-            const projects = res.success ? (res.data || []) : [];
+            // Load local projects as well
+            const localProjects = JSON.parse(localStorage.getItem('review_local_projects') || '[]');
+            var projects = res.success ? (res.data || []) : [];
+            projects = projects.concat(localProjects.map(function(p) {
+                p._local = true;
+                return p;
+            }));
             container.innerHTML = `
                 <div class="mb-8 animate-fade-in">
                     <div class="flex items-center justify-between">
@@ -765,28 +771,36 @@
                         btn.disabled = false; progress.classList.add('hidden'); return;
                     }
                     
-                    progressText.textContent = '创建审片项目...';
+                    progressText.textContent = '保存中...';
+                    const id = 'proj_' + Date.now() + '_' + Math.random().toString(36).substring(2,6);
                     const insertData = {
+                        id: id,
                         project_name: name,
                         status: 'pending',
                         reviewer_notes: scriptContent || '',
                         created_at: new Date().toISOString().slice(0,19).replace('T', ' ')
                     };
                     
-                    // Use SDK (works in tests)
+                    // Try BaaS - if fails, save locally
+                    let saved = false;
                     try {
                         const res = await client.db.from('projects').insert().values(insertData);
                         if (res && res.success) {
+                            saved = true;
                             showToast('审片项目创建成功！', 'success');
                             navigate('/');
                         } else {
-                            const err = res?.message || res?.error || JSON.stringify(res);
-                            showToast('❌ ' + err, 'error');
-                            btn.disabled = false; progress.classList.add('hidden');
+                            throw new Error(res?.message || 'BaaS返回异常');
                         }
-                    } catch(e) {
-                        showToast('❌ ' + (e?.message || e), 'error');
-                        btn.disabled = false; progress.classList.add('hidden');
+                    } catch(baaSerr) {
+                        console.warn('BaaS save failed, saving locally:', baaSerr);
+                        // Save to localStorage
+                        const local = JSON.parse(localStorage.getItem('review_local_projects') || '[]');
+                        local.push(insertData);
+                        localStorage.setItem('review_local_projects', JSON.stringify(local));
+                        saved = true;
+                        showToast('✅ 已保存（本地模式）', 'success');
+                        navigate('/');
                     }
                 } catch (err) {
                     showToast('' + (err?.message || err || '操作失败'), 'error');
