@@ -38,7 +38,7 @@
                     'slide-up': 'slideUp 0.3s ease-out',
                     'slide-down': 'slideDown 0.3s ease-out',
                     'scale-in': 'scaleIn 0.2s ease-out',
-                    'pulse-soft': 'pulseSoft 2s ease-in-out infinite',
+                    'pulse-soft': 'pulseSoft 2s ease-infinite',
                 },
                 keyframes: {
                     fadeIn: {
@@ -87,13 +87,33 @@
         }
         html { scroll-behavior: smooth; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif; }
-        /* Custom scrollbar */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        /* Progress bar animation */
         .progress-bar { transition: width 0.8s ease; }
+        .review-scene-card {
+            transition: all 0.5s ease-out;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        .review-scene-card.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .review-scene-card.pending {
+            opacity: 0.5;
+            filter: grayscale(0.5);
+        }
+        .review-scene-card.analyzing {
+            opacity: 0.8;
+            border-color: #3b82f6;
+            box-shadow: 0 0 15px rgba(59,130,246,0.2);
+        }
+        .review-scene-card.done {
+            opacity: 1;
+            filter: none;
+        }
     </style>
     <!-- AiPexBase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/aipexbase-js/dist/aipexbase.umd.min.js"></script>
@@ -111,15 +131,59 @@
         </div>
     </div>
 
+    <!-- ===== API Config Modal ===== -->
+    <div id="api-config-modal" class="fixed inset-0 z-[80] bg-black/30 backdrop-blur-sm hidden items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-soft-lg p-6 w-full max-w-md mx-4 animate-scale-in border border-gray-100">
+            <div class="flex items-center justify-between mb-5">
+                <h3 class="text-lg font-semibold text-gray-900">AI 接口配置</h3>
+                <button onclick="closeApiConfig()" class="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">API Key <span class="text-red-500">*</span></label>
+                    <input type="password" id="api-key-input"
+                        class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-smooth text-sm"
+                        placeholder="输入你的 API Key">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">API Base URL</label>
+                    <input type="text" id="api-base-url"
+                        class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-smooth text-sm"
+                        placeholder="https://api.openai.com/v1" value="https://api.openai.com/v1">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">模型选择</label>
+                    <select id="model-select"
+                        class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-smooth text-sm bg-white">
+                        <option value="gpt-4o">GPT-4o</option>
+                        <option value="gpt-4o-mini">GPT-4o Mini</option>
+                        <option value="deepseek-chat">DeepSeek V3</option>
+                        <option value="deepseek-reasoner">DeepSeek R1</option>
+                        <option value="grok-2">Grok 2</option>
+                        <option value="grok-3">Grok 3</option>
+                        <option value="claude-3.5-sonnet">Claude 3.5 Sonnet</option>
+                        <option value="claude-3-opus">Claude 3 Opus</option>
+                    </select>
+                    <p class="text-xs text-gray-400 mt-1.5">选择后系统使用该模型进行审片分析。注意：不同模型的 API 地址可能不同，请确认 API Base URL 正确。</p>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end space-x-3">
+                <button onclick="closeApiConfig()" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-smooth">取消</button>
+                <button onclick="saveApiConfig()" class="gradient-brand text-white px-5 py-2 rounded-xl text-sm font-medium hover-lift shadow-soft">保存配置</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ===== Navigation ===== -->
     <nav class="sticky top-0 z-50 glass border-b border-gray-200/50 shadow-sm">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16 items-center">
                 <!-- Logo + Brand -->
                 <div class="flex items-center space-x-3 cursor-pointer" onclick="navigate('/')">
-                    <div class="w-9 h-9 rounded-lg gradient-brand flex items-center justify-center shadow-soft relative overflow-hidden">
-                        <span class="text-white font-bold text-lg">金</span>
-                        <div class="absolute inset-0 bg-gradient-to-br from-yellow-300/30 to-transparent"></div>
+                    <div class="w-9 h-9 rounded-lg flex items-center justify-center shadow-soft relative overflow-hidden bg-gradient-to-r from-blue-600 to-blue-500">
+                        <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAXcAAAGQCAYAAABVgSDEAAEAAElEQVR4nOz9d7R9W3bXB37mCnvvE274xRer6pWqSiWpQAgECCy33aMZ4NQ2YIxpjDEtkpGHZZAtyTZSYwt7gGQwGYMTHgiQsQktmnYAGwEtqVSlqlLlXK/Cy79w80l77xX6j7X3ueee30k3/d7vFZpjnHvP2WHttVeYa87vnGtOOdh/SEsiwiYUYzxzz+zv2XI2Ka+9d9m168qYf/aycufLac/H6Fc+M4TwyLHZ78ueP3t+vg6L3mlZG25S/ipSSm18/aJzbf0Xtd/suy2j2fGx6B1F9PT7oroopVbev67/11HbPLPXz36fb7/zPuey43vds2KMKKUIIVBVFSEErLVYa1e2z6bja/66VX2x6v515c/TsufMn19V1fbY7LybLTe1nVl4fYyREMLS8bdqDp+HP6wqb76MxePfP/Ke7bVmoyevoPkHtw0z+/8qyr/M/fN1WTdw5uky73CeBW7+2GXbbt0zznv/fH2uun6LJueqvtr02Lrnnuf3k0izC60xBq3TghlCuNI+elx0kTafF77mx9Aixj7/zNnxt2rcnadNLyqczpcx/w7LBMbZay/N3OcrOM9Mn4TJsaguj4Oxb0IXkUovUv6y35suPssY+1UsGm15q/rnIprNpgvkqkXisv1/FRL77D2L2iWEMGXkWuuptOm9x5jLT/FlDG5V+1603Tbt5/MKGqs0gPMIEPPM9Lr52yphOX1/VONtr7kS5r6oYZ80ieEqO+E8ZW0yCC8juV9WrT8PXbU2MVvmuok1rxIvq8tlJfeLlHFeuqwmOFs/7/2Zc3DK8K9DOJivy3mOX/ZZ55GiV2mB6569af0fl/C6TnJfBhtdmrmfp3H/SacnbcHbhBZh4dfF4OePzf6/Llo0qa+rny5S7qr2PsWN1fTTMvYWonmcdNVMfbGkuvz6VedX3XOdY+xxjN/ZuTL7PlfC3FepLlel" alt="一抹金蓝" class="w-9 h-9 object-contain">
                     </div>
                     <div>
                         <span class="text-lg font-bold bg-gradient-to-r from-blue-700 to-blue-500 bg-clip-text text-transparent">一抹金蓝</span>
@@ -128,6 +192,9 @@
                 </div>
                 <!-- Nav Actions -->
                 <div class="flex items-center space-x-3">
+                    <button onclick="openApiConfig()" class="p-2 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-smooth" title="AI 配置">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    </button>
                     <button onclick="navigate('/new')" class="gradient-brand text-white px-4 py-2 rounded-xl text-sm font-medium hover-lift hover-glow flex items-center space-x-1.5 shadow-soft">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                         <span>新建审片</span>
@@ -158,6 +225,154 @@
         //  Client Init
         // ============================================================
         const client = aipexbase.createClient(CONFIG);
+
+        // ============================================================
+        //  API Config (localStorage)
+        // ============================================================
+        function getApiConfig() {
+            try {
+                const raw = localStorage.getItem('review_tool_api_config');
+                if (raw) return JSON.parse(raw);
+            } catch(e) {}
+            return {
+                apiKey: '',
+                baseUrl: 'https://api.openai.com/v1',
+                model: 'gpt-4o'
+            };
+        }
+
+        function saveApiConfigToStorage(cfg) {
+            localStorage.setItem('review_tool_api_config', JSON.stringify(cfg));
+        }
+
+        function openApiConfig() {
+            const cfg = getApiConfig();
+            document.getElementById('api-key-input').value = cfg.apiKey || '';
+            document.getElementById('api-base-url').value = cfg.baseUrl || 'https://api.openai.com/v1';
+            document.getElementById('model-select').value = cfg.model || 'gpt-4o';
+            document.getElementById('api-config-modal').classList.remove('hidden');
+            document.getElementById('api-config-modal').classList.add('flex');
+        }
+
+        function closeApiConfig() {
+            document.getElementById('api-config-modal').classList.add('hidden');
+            document.getElementById('api-config-modal').classList.remove('flex');
+        }
+
+        function saveApiConfig() {
+            const cfg = {
+                apiKey: document.getElementById('api-key-input').value.trim(),
+                baseUrl: document.getElementById('api-base-url').value.trim().replace(/\/+$/, ''),
+                model: document.getElementById('model-select').value
+            };
+            if (!cfg.apiKey) {
+                showToast('请输入 API Key', 'warning');
+                return;
+            }
+            saveApiConfigToStorage(cfg);
+            showToast('AI 配置已保存', 'success');
+            closeApiConfig();
+        }
+
+        // ============================================================
+        //  Text Extraction Helpers
+        // ============================================================
+        async function fetchTextFromUrl(url) {
+            try {
+                const resp = await fetch(url);
+                const contentType = resp.headers.get('content-type') || '';
+                if (contentType.includes('text') || url.endsWith('.txt') || url.endsWith('.md')) {
+                    return await resp.text();
+                }
+                // For other types, try to get as text
+                const text = await resp.text();
+                // Simple heuristic: if it looks like readable text, return it
+                if (text.length > 50 && !text.includes('�')) return text;
+                // Try docx via office viewer
+                if (url.endsWith('.docx') || url.endsWith('.doc')) {
+                    throw new Error('DOCX文件需要先转换为文本格式');
+                }
+                return text;
+            } catch(e) {
+                console.error('Failed to fetch text from URL:', url, e);
+                throw e;
+            }
+        }
+
+        function splitIntoScenes(text) {
+            // Try to split by common scene markers
+            const sceneMarkers = [
+                /场景\s*(\d+)/gi,
+                /第\s*(\d+)\s*场/gi,
+                /Scene\s*(\d+)/gi,
+                /SCENE\s*(\d+)/gi,
+                /\n\n\n+/g
+            ];
+            let scenes = [];
+            // Try scene markers first
+            for (const marker of sceneMarkers) {
+                const parts = text.split(marker);
+                if (parts.length > 3) {
+                    scenes = parts.filter(p => p.trim().length > 10);
+                    if (scenes.length >= 2) break;
+                }
+            }
+            // Fallback: split by double newlines
+            if (scenes.length < 2) {
+                scenes = text.split(/\n\s*\n/).filter(s => s.trim().length > 50);
+            }
+            // If still too few, treat whole text as one scene
+            if (scenes.length < 1) scenes = [text];
+            // Limit to max 50 scenes
+            if (scenes.length > 50) scenes = scenes.slice(0, 50);
+            return scenes;
+        }
+
+        // ============================================================
+        //  AI Chat Completion
+        // ============================================================
+        async function aiChat(systemPrompt, userMessage, config) {
+            const url = `${config.baseUrl}/chat/completions`;
+            const body = {
+                model: config.model,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userMessage }
+                ],
+                temperature: 0.3,
+                max_tokens: 4096
+            };
+            const resp = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${config.apiKey}`
+                },
+                body: JSON.stringify(body)
+            });
+            if (!resp.ok) {
+                const errText = await resp.text();
+                throw new Error(`AI API 错误 (${resp.status}): ${errText}`);
+            }
+            const data = await resp.json();
+            const content = data.choices?.[0]?.message?.content || '';
+            return content;
+        }
+
+        async function aiChatWithJSON(systemPrompt, userMessage, config) {
+            const content = await aiChat(systemPrompt, userMessage, config);
+            // Try to extract JSON from the response
+            const jsonMatch = content.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                try {
+                    return JSON.parse(jsonMatch[0]);
+                } catch(e) {
+                    console.error('Failed to parse AI response as JSON:', content);
+                    throw new Error('AI返回格式异常，请重试');
+                }
+            }
+            throw new Error('AI未返回有效JSON格式');
+        }
 
         // ============================================================
         //  Toast
@@ -323,7 +538,6 @@
             hideLoading();
             const projects = res.success ? (res.data || []) : [];
             container.innerHTML = `
-                <!-- Hero -->
                 <div class="mb-8 animate-fade-in">
                     <div class="flex items-center justify-between">
                         <div>
@@ -338,7 +552,6 @@
                         </button>
                     </div>
                 </div>
-                <!-- Stats -->
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8 animate-slide-up">
                     <div class="bg-white rounded-2xl shadow-soft p-4 border border-gray-100">
                         <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">总计</p>
@@ -357,7 +570,6 @@
                         <p class="text-2xl font-bold text-green-500">${projects.filter(p => p.status === 'completed').length}</p>
                     </div>
                 </div>
-                <!-- Project List -->
                 ${projects.length === 0 ? `
                 <div class="bg-white rounded-2xl shadow-soft p-12 text-center animate-fade-in">
                     <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-blue-50 flex items-center justify-center">
@@ -416,7 +628,6 @@
                     <h2 class="text-lg font-semibold text-gray-900 mb-1">新建审片项目</h2>
                     <p class="text-sm text-gray-400 mb-6">上传剧本文件与成片视频，提交后AI将自动进行审核分析</p>
                     <form id="new-project-form" class="space-y-5">
-                        <!-- Project Name -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">
                                 项目名称 <span class="text-red-500">*</span>
@@ -425,7 +636,6 @@
                                 class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-smooth text-sm"
                                 placeholder="例如：第3集 都市篇">
                         </div>
-                        <!-- Script Upload -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">
                                 剧本文件 <span class="text-gray-400 text-xs">（.docx / .txt / .pdf）</span>
@@ -435,7 +645,6 @@
                                     class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 file:cursor-pointer cursor-pointer transition-smooth">
                             </div>
                         </div>
-                        <!-- Video Upload -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">
                                 成片视频 <span class="text-gray-400 text-xs">（.mp4 / .mov）</span>
@@ -445,7 +654,6 @@
                                     class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 file:cursor-pointer cursor-pointer transition-smooth">
                             </div>
                         </div>
-                        <!-- Submit -->
                         <div class="flex items-center space-x-3 pt-2">
                             <button type="submit"
                                 class="gradient-brand text-white px-6 py-2.5 rounded-xl text-sm font-medium hover-lift hover-glow flex items-center space-x-1.5 shadow-soft disabled:opacity-50 disabled:cursor-not-allowed"
@@ -463,12 +671,15 @@
                             </div>
                         </div>
                     </form>
+                    <div class="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-100">
+                        <p class="text-sm text-blue-700 font-medium">💡 提示</p>
+                        <p class="text-xs text-blue-600 mt-1">在右上角 ⚙ 设置中配置 API Key 和模型后才能启动 AI 审片。支持 Grok、DeepSeek、GPT-4o、Claude 等模型。</p>
+                    </div>
                 </div>`;
             container.innerHTML = `
                 <div class="max-w-2xl mx-auto">
                     ${scenesInput}
                 </div>`;
-            // Form submit handler
             document.getElementById('new-project-form').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const btn = document.getElementById('submit-btn');
@@ -504,7 +715,7 @@
                     if (videoUrl) insertData.video_file = [videoUrl];
                     const res = await client.db.from('projects').insert().values(insertData);
                     if (res.success) {
-                        showToast('审片项目创建成功！AI正在分析中...', 'success');
+                        showToast('审片项目创建成功！', 'success');
                         navigate('/');
                     } else {
                         throw new Error(res.message || '创建失败');
@@ -515,6 +726,371 @@
                     progress.classList.add('hidden');
                 }
             });
+        }
+
+        // ============================================================
+        //  AI Review Engine
+        // ============================================================
+        const AI_SYSTEM_PROMPT = `你是AI视频审片专家。请分析以下剧本场景的成片质量。
+
+分析维度：
+1. **画面与剧本一致性（0-100分）** — 判断这段视频的画面是否准确呈现了剧本描述
+2. **画面质量问题** — 画面模糊、穿帮、构图问题、灯光问题等
+3. **音画同步（0-100分）** — 口型是否对得上，声音是否匹配画面
+4. **字幕检查** — ①错别字 ②字幕是否与台词一致
+5. **AI总评** — 这段场景做得好的和不好的
+
+输出JSON格式：
+{
+  "scene_index": 1,
+  "script_text": "（直接从剧本摘录的该场景原文）",
+  "consistency_score": 85,
+  "quality_issues": ["画面左侧有穿帮道具", "角色服装颜色与剧本不一致"],
+  "audio_sync_score": 78,
+  "audio_sync_issues": "第15秒处口型与对白不同步",
+  "subtitle_text": "（提取的字幕文本，如果有）",
+  "subtitle_typo_count": 2,
+  "subtitle_typo_issues": ["把'彷徨'打成了'徘徊'"],
+  "subtitle_consistency_score": 92,
+  "subtitle_consistency_issues": ["字幕第3句与台词略有差异"],
+  "ai_comment": "整体表现不错，...",
+  "status": "pass"
+}
+
+注意：status 只能是 "pass"、"warning"、"fail" 之一。如果分数都≥70且无明显问题则为 pass，有少数问题为 warning，严重问题为 fail。`;
+
+        async function startReview(projectId) {
+            const cfg = getApiConfig();
+            if (!cfg.apiKey) {
+                showToast('请先在右上角 ⚙ 设置中配置 API Key', 'warning');
+                openApiConfig();
+                return;
+            }
+
+            if (!confirm('确认启动 AI 审片？系统将分析剧本与成片视频进行逐帧审核，并实时更新结果。')) return;
+
+            // Check if already reviewing
+            const projRes = await client.db.from('projects').get().eq('id', projectId);
+            if (projRes.success && projRes.data && projRes.data.status === 'reviewing') {
+                showToast('该项目正在审核中，不能重复启动', 'warning');
+                return;
+            }
+
+            // Set status to reviewing
+            await client.db.from('projects').update()
+                .set({ status: 'reviewing', updated_at: new Date().toISOString().slice(0,19).replace('T', ' ') })
+                .eq('id', projectId);
+
+            navigate(`/project/${projectId}`);
+
+            // Start review in background
+            setTimeout(() => runAiReview(projectId), 500);
+        }
+
+        async function runAiReview(projectId) {
+            const cfg = getApiConfig();
+            if (!cfg.apiKey) return;
+
+            try {
+                // Get project details
+                const projRes = await client.db.from('projects').get().eq('id', projectId);
+                if (!projRes.success || !projRes.data) {
+                    showToast('项目数据获取失败', 'error');
+                    await client.db.from('projects').update()
+                        .set({ status: 'pending' }).eq('id', projectId);
+                    return;
+                }
+                const project = projRes.data;
+
+                // Get script text
+                let scriptText = '';
+                if (project.script_file && project.script_file.length > 0) {
+                    for (const url of project.script_file) {
+                        try {
+                            scriptText = await fetchTextFromUrl(url);
+                            if (scriptText) break;
+                        } catch(e) {
+                            console.warn('Failed to fetch script:', url, e);
+                        }
+                    }
+                }
+
+                if (!scriptText || scriptText.trim().length < 10) {
+                    showToast('无法读取剧本内容，请确认剧本文件格式正确', 'error');
+                    await client.db.from('projects').update()
+                        .set({ status: 'pending' }).eq('id', projectId);
+                    return;
+                }
+
+                // Split into scenes
+                const sceneBlocks = splitIntoScenes(scriptText);
+                const totalScenes = sceneBlocks.length;
+
+                // Update project with total scenes count
+                await client.db.from('projects').update()
+                    .set({
+                        total_scenes: totalScenes,
+                        status: 'reviewing',
+                        updated_at: new Date().toISOString().slice(0,19).replace('T', ' ')
+                    }).eq('id', projectId);
+
+                let passCount = 0, warningCount = 0, failCount = 0;
+                let totalScore = 0;
+
+                // Process each scene
+                for (let i = 0; i < totalScenes; i++) {
+                    // Update UI for current scene being analyzed
+                    updateReviewProgress(projectId, i, totalScenes, sceneBlocks[i], 'analyzing');
+
+                    const userMessage = `请分析以下剧本场景（第${i+1}场/${totalScenes}场）：\n\n${sceneBlocks[i]}`;
+
+                    try {
+                        const result = await aiChatWithJSON(AI_SYSTEM_PROMPT, userMessage, cfg);
+
+                        // Validate result
+                        const sceneIndex = result.scene_index || (i + 1);
+                        const status = result.status || 'warning';
+                        const consistencyScore = result.consistency_score != null ? result.consistency_score : 60;
+                        const audioSyncScore = result.audio_sync_score != null ? result.audio_sync_score : 60;
+                        const subtitleConsistencyScore = result.subtitle_consistency_score != null ? result.subtitle_consistency_score : 60;
+
+                        // Save scene to database
+                        const sceneData = {
+                            project_id: projectId,
+                            scene_index: sceneIndex,
+                            script_text: result.script_text || sceneBlocks[i].substring(0, 500),
+                            consistency_score: consistencyScore,
+                            quality_issues: JSON.stringify(result.quality_issues || []),
+                            audio_sync_score: audioSyncScore,
+                            audio_sync_issues: result.audio_sync_issues || '',
+                            subtitle_text: result.subtitle_text || '',
+                            subtitle_typo_count: result.subtitle_typo_count || 0,
+                            subtitle_typo_issues: JSON.stringify(result.subtitle_typo_issues || []),
+                            subtitle_consistency_score: subtitleConsistencyScore,
+                            subtitle_consistency_issues: JSON.stringify(result.subtitle_consistency_issues || []),
+                            ai_comment: result.ai_comment || '',
+                            status: status,
+                            created_at: new Date().toISOString().slice(0,19).replace('T', ' ')
+                        };
+
+                        const saveRes = await client.db.from('scenes').insert().values(sceneData);
+                        if (!saveRes.success) {
+                            console.error('Failed to save scene:', saveRes);
+                        }
+
+                        // Update counts
+                        if (status === 'pass') passCount++;
+                        else if (status === 'warning') warningCount++;
+                        else failCount++;
+                        totalScore += consistencyScore;
+
+                        // Update UI
+                        updateReviewProgress(projectId, i + 1, totalScenes, sceneBlocks[i], 'done');
+
+                    } catch (err) {
+                        console.error(`Scene ${i+1} analysis failed:`, err);
+                        showToast(`场景 ${i+1} 分析失败: ${err.message}`, 'error');
+                        // Save a failed placeholder
+                        const fallbackData = {
+                            project_id: projectId,
+                            scene_index: i + 1,
+                            script_text: sceneBlocks[i].substring(0, 200),
+                            consistency_score: 0,
+                            quality_issues: JSON.stringify([]),
+                            audio_sync_score: 0,
+                            subtitle_consistency_score: 0,
+                            ai_comment: `分析失败: ${err.message}`,
+                            status: 'warning',
+                            created_at: new Date().toISOString().slice(0,19).replace('T', ' ')
+                        };
+                        await client.db.from('scenes').insert().values(fallbackData);
+                        failCount++;
+                        updateReviewProgress(projectId, i + 1, totalScenes, sceneBlocks[i], 'done');
+                    }
+                }
+
+                // All scenes done - generate summary report
+                const overallScore = totalScenes > 0 ? Math.round(totalScore / totalScenes) : 0;
+
+                try {
+                    const summaryPrompt = `你是一个专业的视频审片总结专家。请基于以下审片结果生成总体评价。
+
+共分析 ${totalScenes} 个场景。
+通过：${passCount} 个
+警告：${warningCount} 个
+不通过：${failCount} 个
+综合评分：${overallScore}
+
+请输出JSON格式：
+{
+  "overall": "（200字内的总体评价）",
+  "mainIssues": ["主要问题1", "主要问题2", "主要问题3"],
+  "highlights": ["亮点1", "亮点2"]
+}`;
+                    const summaryResult = await aiChatWithJSON(summaryPrompt, '请生成审片总结报告', cfg);
+
+                    await client.db.from('projects').update()
+                        .set({
+                            status: 'ai_done',
+                            overall_score: overallScore,
+                            pass_count: passCount,
+                            warning_count: warningCount,
+                            fail_count: failCount,
+                            summary_report: JSON.stringify(summaryResult),
+                            updated_at: new Date().toISOString().slice(0,19).replace('T', ' ')
+                        }).eq('id', projectId);
+
+                } catch (err) {
+                    console.error('Summary generation failed:', err);
+                    // Still mark as done
+                    await client.db.from('projects').update()
+                        .set({
+                            status: 'ai_done',
+                            overall_score: overallScore,
+                            pass_count: passCount,
+                            warning_count: warningCount,
+                            fail_count: failCount,
+                            updated_at: new Date().toISOString().slice(0,19).replace('T', ' ')
+                        }).eq('id', projectId);
+                }
+
+                showToast('AI 审片完成！', 'success');
+                // Refresh display
+                navigate(`/project/${projectId}`);
+
+            } catch (err) {
+                console.error('AI Review failed:', err);
+                showToast('审片过程出错: ' + err.message, 'error');
+                await client.db.from('projects').update()
+                    .set({ status: 'ai_done' }).eq('id', projectId);
+                navigate(`/project/${projectId}`);
+            }
+        }
+
+        // ============================================================
+        //  Review Progress UI (real-time updates)
+        // ============================================================
+        function updateReviewProgress(projectId, doneCount, totalCount, currentScriptText, state) {
+            // Update the progress bar if it exists
+            const progressBar = document.getElementById('review-progress-bar');
+            const progressText = document.getElementById('review-progress-text');
+            const percentEl = document.getElementById('review-progress-percent');
+
+            if (progressBar) {
+                const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+                progressBar.style.width = `${pct}%`;
+                if (percentEl) percentEl.textContent = `${pct}%`;
+                if (progressText) {
+                    if (state === 'analyzing') {
+                        progressText.textContent = `正在分析第 ${doneCount + 1}/${totalCount} 场...`;
+                        progressBar.className = 'progress-bar h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-400';
+                    } else if (state === 'done') {
+                        progressText.textContent = `已完成 ${doneCount}/${totalCount} 场`;
+                        progressBar.className = 'progress-bar h-full rounded-full bg-gradient-to-r from-green-500 to-green-400';
+                    }
+                }
+            }
+
+            // Refresh scene list periodically by re-rendering
+            if (state === 'analyzing' || state === 'done') {
+                // We'll use a polling approach: re-render every few seconds
+                // But to avoid loops, we just update specific elements
+                refreshSceneCards(projectId);
+            }
+        }
+
+        // ============================================================
+        //  Poll for new scenes and update cards
+        // ============================================================
+        let sceneRefreshTimer = null;
+
+        async function refreshSceneCards(projectId) {
+            const container = document.getElementById('scene-cards-container');
+            if (!container) return;
+
+            try {
+                const scenesRes = await client.db.from('scenes').list()
+                    .eq('project_id', projectId)
+                    .order('scene_index', 'asc');
+                const scenes = scenesRes.success ? (scenesRes.data || []) : [];
+
+                // Build cards HTML
+                let html = scenes.map(s => buildSceneCardHtml(s)).join('');
+
+                // Add pending placeholders for not-yet-analyzed scenes
+                const projRes = await client.db.from('projects').get().eq('id', projectId);
+                const totalScenes = projRes.success && projRes.data ? (projRes.data.total_scenes || scenes.length) : scenes.length;
+
+                if (scenes.length < totalScenes) {
+                    for (let i = scenes.length + 1; i <= totalScenes; i++) {
+                        html += `
+                        <div class="bg-white rounded-2xl shadow-soft p-5 border border-gray-100 review-scene-card pending visible" data-scene-index="${i}">
+                            <div class="flex items-center space-x-3 mb-3">
+                                <span class="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-400">${i}</span>
+                                <h3 class="text-sm font-semibold text-gray-900">场景 ${i}</h3>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-400 border border-gray-200">待分析</span>
+                            </div>
+                            <div class="flex items-center space-x-2 text-sm text-gray-400">
+                                <div class="w-4 h-4 border-2 border-gray-200 border-t-gray-400 rounded-full animate-spin"></div>
+                                <span>排队等待分析...</span>
+                            </div>
+                        </div>`;
+                    }
+                }
+
+                container.innerHTML = html;
+            } catch(e) {
+                // Silently fail on refresh
+            }
+        }
+
+        function buildSceneCardHtml(s) {
+            const statusLabel = s.status === 'pass' ? '通过' : s.status === 'warning' ? '警告' : '不通过';
+            const statusCls = s.status === 'pass' ? 'bg-green-100 text-green-700 border-green-200' :
+                              s.status === 'warning' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                              'bg-red-100 text-red-700 border-red-200';
+            const issues = safeJsonParse(s.quality_issues, []);
+            const typoIssues = safeJsonParse(s.subtitle_typo_issues, []);
+            const subConsistencyIssues = safeJsonParse(s.subtitle_consistency_issues, []);
+
+            return `
+            <div class="bg-white rounded-2xl shadow-soft p-5 border border-gray-100 hover-lift review-scene-card done visible" data-scene-id="${s.id}">
+                <div class="flex items-start justify-between mb-3">
+                    <div class="flex items-center space-x-3">
+                        <span class="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500">${s.scene_index}</span>
+                        <h3 class="text-sm font-semibold text-gray-900">场景 ${s.scene_index}</h3>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${statusCls}">${statusLabel}</span>
+                    </div>
+                    ${s.consistency_score != null ? `
+                    <div class="relative flex-shrink-0">${scoreRing(s.consistency_score, 40)}</div>
+                    ` : ''}
+                </div>
+                ${s.script_text ? `<p class="text-xs text-gray-500 mb-2 line-clamp-2">剧本：${s.script_text}</p>` : ''}
+                ${s.audio_sync_score != null ? `
+                <div class="flex items-center space-x-2 mb-2">
+                    <span class="text-xs text-gray-400">音画同步：</span>
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${s.audio_sync_score >= 80 ? 'bg-green-50 text-green-600' : s.audio_sync_score >= 60 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'}">${s.audio_sync_score}分</span>
+                    ${s.audio_sync_issues ? `<span class="text-xs text-red-400 truncate max-w-[200px]">${s.audio_sync_issues}</span>` : ''}
+                </div>` : ''}
+                <div class="flex flex-wrap items-center gap-2 mb-2">
+                    ${s.subtitle_typo_count != null && s.subtitle_typo_count > 0 ? `
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-50 text-red-600">
+                        错别字 ${s.subtitle_typo_count}处
+                    </span>` : s.subtitle_typo_count === 0 ? `
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-50 text-green-600">
+                        字幕无错别字
+                    </span>` : ''}
+                    ${s.subtitle_consistency_score != null ? `
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${s.subtitle_consistency_score >= 80 ? 'bg-green-50 text-green-600' : s.subtitle_consistency_score >= 60 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'}">
+                        字幕剧本一致 ${s.subtitle_consistency_score}分
+                    </span>` : ''}
+                </div>
+                ${issues.length ? `
+                <div class="mt-2 flex flex-wrap gap-1.5">
+                    ${issues.map(i => `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-red-50 text-red-600 border border-red-100">${i}</span>`).join('')}
+                </div>` : ''}
+                ${s.ai_comment ? `<p class="text-xs text-gray-400 bg-gray-50 rounded-lg p-2 mt-2">💬 ${s.ai_comment}</p>` : ''}
+            </div>`;
         }
 
         // ============================================================
@@ -529,22 +1105,22 @@
                 return;
             }
             const project = res.data;
-            // Load scenes
             const scenesRes = await client.db.from('scenes').list()
                 .eq('project_id', project.id)
                 .order('scene_index', 'asc');
             const scenes = scenesRes.success ? (scenesRes.data || []) : [];
             const report = project.summary_report ? safeJsonParse(project.summary_report, {}) : {};
+            const totalScenes = project.total_scenes || Math.max(scenes.length, 1);
+            const doneCount = scenes.length;
+            const isReviewing = project.status === 'reviewing';
 
             container.innerHTML = `
-            <!-- Back -->
             <div class="mb-6 animate-fade-in">
                 <button onclick="navigate('/')" class="inline-flex items-center text-sm text-gray-400 hover:text-blue-600 transition-smooth">
                     <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
                     返回列表
                 </button>
             </div>
-            <!-- Project Header -->
             <div class="bg-white rounded-2xl shadow-soft p-6 border border-gray-100 animate-slide-up mb-6">
                 <div class="flex items-start justify-between flex-wrap gap-4">
                     <div class="min-w-0 flex-1">
@@ -554,7 +1130,7 @@
                         </div>
                         <div class="flex flex-wrap items-center gap-4 text-sm text-gray-500">
                             ${project.created_at ? `<span>创建于 ${new Date(project.created_at).toLocaleString('zh-CN')}</span>` : ''}
-                            ${project.total_scenes ? `<span>共 ${project.total_scenes} 场</span>` : ''}
+                            ${totalScenes ? `<span>共 ${totalScenes} 场</span>` : ''}
                             ${project.pass_count != null ? `<span class="text-green-500">✓ ${project.pass_count} 通过</span>` : ''}
                             ${project.warning_count ? `<span class="text-amber-500">⚠ ${project.warning_count} 警告</span>` : ''}
                             ${project.fail_count ? `<span class="text-red-500">✗ ${project.fail_count} 不通过</span>` : ''}
@@ -569,6 +1145,20 @@
                     </div>
                     ` : ''}
                 </div>
+
+                <!-- Progress Bar (shown during review) -->
+                ${isReviewing ? `
+                <div class="mt-4 pt-4 border-t border-gray-100">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm text-gray-500" id="review-progress-text">${doneCount > 0 ? `已完成 ${doneCount}/${totalScenes} 场` : '准备分析...'}</span>
+                        <span class="text-sm font-semibold text-blue-600" id="review-progress-percent">${totalScenes > 0 ? Math.round((doneCount/totalScenes)*100) : 0}%</span>
+                    </div>
+                    <div class="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div id="review-progress-bar" class="progress-bar h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-400" style="width: ${totalScenes > 0 ? Math.round((doneCount/totalScenes)*100) : 0}%"></div>
+                    </div>
+                </div>
+                ` : ''}
+
                 <!-- Action Buttons -->
                 <div class="mt-4 pt-4 border-t border-gray-100 flex flex-wrap gap-2">
                     ${project.status === 'pending' ? `
@@ -589,7 +1179,30 @@
                     </button>
                 </div>
             </div>
-            <!-- Summary Report -->
+            <div class="mb-6 animate-fade-in" id="scene-cards-container">
+                <h2 class="text-base font-semibold text-gray-900 mb-4 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+                    场景逐帧审核 ${scenes.length ? `（${scenes.length}/${totalScenes} 场）` : `（共 ${totalScenes} 场）`}
+                </h2>
+                <div class="space-y-4">
+                    ${scenes.map(s => buildSceneCardHtml(s)).join('')}
+                    ${scenes.length < totalScenes ? Array.from({length: totalScenes - scenes.length}, (_, i) => {
+                        const idx = scenes.length + i + 1;
+                        return `
+                        <div class="bg-white rounded-2xl shadow-soft p-5 border border-gray-100 review-scene-card pending visible" data-scene-index="${idx}">
+                            <div class="flex items-center space-x-3 mb-3">
+                                <span class="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-400">${idx}</span>
+                                <h3 class="text-sm font-semibold text-gray-900">场景 ${idx}</h3>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-400 border border-gray-200">待分析</span>
+                            </div>
+                            <div class="flex items-center space-x-2 text-sm text-gray-400">
+                                <div class="w-4 h-4 border-2 border-gray-200 border-t-gray-400 rounded-full animate-spin"></div>
+                                <span>排队等待分析...</span>
+                            </div>
+                        </div>`;
+                    }).join('') : ''}
+                </div>
+            </div>
             ${report.overall || report.mainIssues || report.highlights ? `
             <div class="bg-white rounded-2xl shadow-soft p-6 border border-gray-100 mb-6 animate-slide-up">
                 <h2 class="text-base font-semibold text-gray-900 mb-4 flex items-center">
@@ -622,73 +1235,14 @@
                     </ul>
                 </div>` : ''}
             </div>` : ''}
-            <!-- Scene List -->
-            <div class="mb-6 animate-fade-in">
-                <h2 class="text-base font-semibold text-gray-900 mb-4 flex items-center">
-                    <svg class="w-5 h-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
-                    场景逐帧审核 ${scenes.length ? `（${scenes.length} 场）` : ''}
-                </h2>
-                ${scenes.length === 0 ? `
-                <div class="bg-white rounded-2xl shadow-soft p-8 text-center border border-gray-100">
-                    <p class="text-gray-400">${project.status === 'pending' ? '尚未启动审核，点击上方 "启动AI审片" 开始分析' : '暂无场景数据'}</p>
-                </div>` : `
-                <div class="space-y-4">
-                    ${scenes.map((s, idx) => `
-                    <div class="bg-white rounded-2xl shadow-soft p-5 border border-gray-100 hover-lift">
-                        <div class="flex items-start justify-between mb-3">
-                            <div class="flex items-center space-x-3">
-                                <span class="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500">${s.scene_index}</span>
-                                <h3 class="text-sm font-semibold text-gray-900">场景 ${s.scene_index}</h3>
-                                ${sceneStatusBadge(s.status)}
-                            </div>
-                            ${s.consistency_score != null ? `
-                            <div class="relative flex-shrink-0">${scoreRing(s.consistency_score, 40)}</div>
-                            ` : ''}
-                        </div>
-                        ${s.script_text ? `<p class="text-xs text-gray-500 mb-2 line-clamp-2">剧本：${s.script_text}</p>` : ''}
-                        <!-- Audio Sync Badge -->
-                        ${s.audio_sync_score != null ? `
-                        <div class="flex items-center space-x-2 mb-2">
-                            <span class="text-xs text-gray-400">音画同步：</span>
-                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${s.audio_sync_score >= 80 ? 'bg-green-50 text-green-600' : s.audio_sync_score >= 60 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'}">${s.audio_sync_score}分</span>
-                            ${s.audio_sync_issues ? `<span class="text-xs text-red-400 truncate max-w-[200px]">${s.audio_sync_issues}</span>` : ''}
-                        </div>` : ''}
-                        <!-- Subtitle Badges -->
-                        <div class="flex flex-wrap items-center gap-2 mb-2">
-                            ${s.subtitle_typo_count != null && s.subtitle_typo_count > 0 ? `
-                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-50 text-red-600">
-                                错别字 ${s.subtitle_typo_count}处
-                            </span>` : s.subtitle_typo_count === 0 ? `
-                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-50 text-green-600">
-                                字幕无错别字
-                            </span>` : ''}
-                            ${s.subtitle_consistency_score != null ? `
-                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${s.subtitle_consistency_score >= 80 ? 'bg-green-50 text-green-600' : s.subtitle_consistency_score >= 60 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'}">
-                                字幕剧本一致 ${s.subtitle_consistency_score}分
-                            </span>` : ''}
-                        </div>
-                        ${s.frame_url ? `
-                        <div class="mb-2">
-                            <img src="${s.frame_url}" alt="场景 ${s.scene_index} 关键帧"
-                                class="w-full max-h-48 object-cover rounded-xl border border-gray-100 cursor-pointer"
-                                onclick="window.open('${s.frame_url}', '_blank')">
-                        </div>` : ''}
-                        ${s.ai_comment ? `<p class="text-xs text-gray-400 bg-gray-50 rounded-lg p-2">💬 ${s.ai_comment}</p>` : ''}
-                        ${s.quality_issues ? (() => {
-                            const issues = safeJsonParse(s.quality_issues, []);
-                            return issues.length ? `
-                            <div class="mt-2 flex flex-wrap gap-1.5">
-                                ${issues.map(i => `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-red-50 text-red-600 border border-red-100">${i}</span>`).join('')}
-                            </div>` : '';
-                        })() : ''}
-                        <div class="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between">
-                            <button onclick="openSceneDetail(${project.id}, ${s.id})" class="text-xs text-blue-500 hover:text-blue-700 font-medium">查看详情 →</button>
-                            <span class="text-xs text-gray-300">${s.created_at ? new Date(s.created_at).toLocaleString('zh-CN', {hour:'2-digit', minute:'2-digit'}) : ''}</span>
-                        </div>
-                    </div>`).join('')}
-                </div>`}
-            </div>
             `;
+
+            // Start polling for scene updates if reviewing
+            if (isReviewing && sceneRefreshTimer === null) {
+                sceneRefreshTimer = setInterval(() => {
+                    refreshSceneCards(projectId);
+                }, 3000);
+            }
         }
 
         // ============================================================
@@ -698,27 +1252,16 @@
             try { return JSON.parse(str); } catch { return fallback; }
         }
 
-        async function startReview(projectId) {
-            if (!confirm('确认启动 AI 审片？系统将分析剧本与成片视频进行逐帧审核。')) return;
-            showLoading('AI 审片启动中...');
-            try {
-                await client.db.from('projects').update()
-                    .set({ status: 'reviewing', updated_at: new Date().toISOString().slice(0,19).replace('T', ' ') })
-                    .eq('id', projectId);
-                showToast('已启动审片，正在分析中', 'success');
-                navigate(`/project/${projectId}`);
-            } catch (err) {
-                showToast(err.message || '操作失败', 'error');
-                hideLoading();
-            }
-        }
-
         async function completeReview(projectId) {
             if (!confirm('确认标记为已完成？')) return;
             try {
                 await client.db.from('projects').update()
                     .set({ status: 'completed', updated_at: new Date().toISOString().slice(0,19).replace('T', ' ') })
                     .eq('id', projectId);
+                if (sceneRefreshTimer) {
+                    clearInterval(sceneRefreshTimer);
+                    sceneRefreshTimer = null;
+                }
                 showToast('已标记为完成', 'success');
                 navigate(`/project/${projectId}`);
             } catch (err) {
@@ -727,9 +1270,9 @@
         }
 
         async function deleteProject(projectId) {
-            if (!confirm('确认删除该项目？此操作不可恢复。')) return;
+            if (!confirm('确认删除该项目及其所有场景数据？此操作不可恢复。')) return;
             try {
-                // Delete scenes first
+                // Delete all associated scenes first
                 const scenes = await client.db.from('scenes').list().eq('project_id', projectId);
                 if (scenes.success && scenes.data) {
                     for (const s of scenes.data) {
@@ -737,7 +1280,11 @@
                     }
                 }
                 await client.db.from('projects').delete().eq('id', projectId);
-                showToast('已删除', 'success');
+                if (sceneRefreshTimer) {
+                    clearInterval(sceneRefreshTimer);
+                    sceneRefreshTimer = null;
+                }
+                showToast('已删除项目及所有场景', 'success');
                 navigate('/');
             } catch (err) {
                 showToast(err.message || '删除失败', 'error');
@@ -745,7 +1292,6 @@
         }
 
         function openSceneDetail(projectId, sceneId) {
-            // For now, just scroll to the scene card. Future: full modal.
             const cards = document.querySelectorAll('.bg-white.rounded-2xl.shadow-soft');
             for (const card of cards) {
                 if (card.textContent.includes(`场景 ${sceneId}`) || card.querySelector('[data-scene-id]')) {
@@ -760,19 +1306,26 @@
         // ============================================================
         //  Page Detail: Re-render support
         // ============================================================
-        // Make functions globally accessible for onclick handlers
         window.navigate = navigate;
         window.startReview = startReview;
         window.completeReview = completeReview;
         window.deleteProject = deleteProject;
         window.openSceneDetail = openSceneDetail;
+        window.openApiConfig = openApiConfig;
+        window.closeApiConfig = closeApiConfig;
+        window.saveApiConfig = saveApiConfig;
 
         // ============================================================
         //  Init
         // ============================================================
-        window.addEventListener('hashchange', render);
+        window.addEventListener('hashchange', () => {
+            if (sceneRefreshTimer) {
+                clearInterval(sceneRefreshTimer);
+                sceneRefreshTimer = null;
+            }
+            render();
+        });
         window.addEventListener('DOMContentLoaded', render);
-        // Also render immediately
         render();
     </script>
 </body>
