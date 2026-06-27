@@ -666,21 +666,25 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">
-                                剧本文件 <span class="text-gray-400 text-xs">（.docx / .txt / .pdf）</span>
+                                剧本文本 <span class="text-gray-400 text-xs">（必填—粘贴或上传）</span>
                             </label>
-                            <div class="relative">
-                                <input type="file" id="script-file" accept=".docx,.doc,.txt,.pdf,.md"
+                            <textarea id="script-text" rows="6"
+                                class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-smooth text-sm resize-y"
+                                placeholder="直接粘贴剧本内容...&#10;&#10;或将 .docx / .txt 文件拖入下方区域"></textarea>
+                            <div class="mt-2">
+                                <input type="file" id="script-file" accept=".docx,.doc,.txt,.md"
                                     class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 file:cursor-pointer cursor-pointer transition-smooth">
                             </div>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">
-                                成片视频 <span class="text-gray-400 text-xs">（.mp4 / .mov）</span>
+                                成片视频 <span class="text-gray-400 text-xs">（.mp4 / .mov，选填）</span>
                             </label>
                             <div class="relative">
                                 <input type="file" id="video-file" accept=".mp4,.mov,.avi,.webm"
                                     class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 file:cursor-pointer cursor-pointer transition-smooth">
                             </div>
+                            <p class="text-xs text-gray-400 mt-1">视频仅用于参考，当前版本基于剧本文本进行分析</p>
                         </div>
                         <div class="flex items-center space-x-3 pt-2">
                             <button type="submit"
@@ -767,10 +771,14 @@
                             console.warn('Video upload failed:', uploadErr);
                         }
                     }
+                    // Read textarea content (highest priority) - must be before validation
+                    const textareaVal = document.getElementById('script-text').value.trim();
+                    if (textareaVal) scriptContent = textareaVal;
                     if (!scriptContent && !scriptUrl && !videoUrl) {
-                        showToast('请至少上传剧本文件', 'warning');
+                        showToast('请填写剧本内容或上传剧本文件', 'warning');
                         btn.disabled = false; progress.classList.add('hidden'); return;
                     }
+                    
                     progressText.textContent = '创建审片项目...';
                     const insertData = {
                         project_name: name,
@@ -1105,7 +1113,7 @@
                             </div>
                             <div class="flex items-center space-x-2 text-sm text-gray-400">
                                 <div class="w-4 h-4 border-2 border-gray-200 border-t-gray-400 rounded-full animate-spin"></div>
-                                <span>排队等待分析...</span>
+                                <span>⏳ 等待AI审片...</span>
                             </div>
                         </div>`;
                     }
@@ -1270,7 +1278,7 @@
                             </div>
                             <div class="flex items-center space-x-2 text-sm text-gray-400">
                                 <div class="w-4 h-4 border-2 border-gray-200 border-t-gray-400 rounded-full animate-spin"></div>
-                                <span>排队等待分析...</span>
+                                <span>⏳ 等待AI审片...</span>
                             </div>
                         </div>`;
                     }).join('') : ''}
@@ -1391,10 +1399,77 @@
         // ============================================================
         //  Init
         // ============================================================
+        // PC: Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'n') { e.preventDefault(); navigate('/new'); }
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('api-config-modal');
+                if (modal && !modal.classList.contains('hidden')) closeApiConfig();
+            }
+        });
+        
+        // PC: File drag-and-drop on textarea
+        document.addEventListener('DOMContentLoaded', () => {
+            const textarea = document.getElementById('script-text');
+            if (!textarea) return;
+            textarea.addEventListener('dragover', (e) => { e.preventDefault(); textarea.classList.add('border-blue-400'); });
+            textarea.addEventListener('dragleave', () => textarea.classList.remove('border-blue-400'));
+            textarea.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                textarea.classList.remove('border-blue-400');
+                const files = e.dataTransfer.files;
+                if (!files.length) return;
+                const file = files[0];
+                if (!file.name.match(/\.(docx|txt|md)$/i)) return;
+                try {
+                    const fr = new FileReader();
+                    const text = await new Promise((resolve, reject) => {
+                        fr.onload = () => resolve(fr.result);
+                        fr.onerror = reject;
+                        if (file.name.endsWith('.docx') && typeof mammoth !== 'undefined') {
+                            fr.readAsArrayBuffer(file);
+                        } else {
+                            fr.readAsText(file);
+                        }
+                    });
+                    if (file.name.endsWith('.docx') && typeof mammoth !== 'undefined') {
+                        const result = await mammoth.extractRawText({ arrayBuffer: text });
+                        textarea.value = result.value;
+                    } else {
+                        textarea.value = text;
+                    }
+                    showToast('剧本内容已读取', 'success');
+                } catch(e) {
+                    showToast('读取文件失败: ' + e.message, 'error');
+                }
+            });
+        });
+        
+        // Auto-refresh projects with reviewing status every 10s
+        let reviewAutoRefreshTimer = null;
+        function startReviewAutoRefresh() {
+            if (reviewAutoRefreshTimer) clearInterval(reviewAutoRefreshTimer);
+            reviewAutoRefreshTimer = setInterval(() => {
+                const listEl = document.getElementById('project-list');
+                if (listEl || window.location.hash.startsWith('#/project/')) {
+                    render();
+                } else {
+                    clearInterval(reviewAutoRefreshTimer);
+                    reviewAutoRefreshTimer = null;
+                }
+            }, 10000);
+        }
+        
         window.addEventListener('hashchange', () => {
             if (sceneRefreshTimer) {
                 clearInterval(sceneRefreshTimer);
                 sceneRefreshTimer = null;
+            }
+            if (window.location.hash.startsWith('#/project/')) {
+                startReviewAutoRefresh();
+            } else if (reviewAutoRefreshTimer) {
+                clearInterval(reviewAutoRefreshTimer);
+                reviewAutoRefreshTimer = null;
             }
             render();
         });
