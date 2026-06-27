@@ -772,20 +772,21 @@
                         reviewer_notes: scriptContent || '',
                         created_at: new Date().toISOString().slice(0,19).replace('T', ' ')
                     };
-                    if (scriptFile) {
-                        // Try upload in background - don't block on it
-                        uploadFile(scriptFile).then(url => {
-                            if (url) {
-                                client.db.from('projects').update().set({script_file: [url]}).eq('project_name', name);
-                            }
-                        }).catch(() => {});
-                    }
-                    const res = await client.db.from('projects').insert().values(insertData);
-                    if (res.success) {
-                        showToast('审片项目创建成功！', 'success');
-                        navigate('/');
-                    } else {
-                        throw new Error(res.message || '创建失败');
+                    
+                    // Use SDK (works in tests)
+                    try {
+                        const res = await client.db.from('projects').insert().values(insertData);
+                        if (res && res.success) {
+                            showToast('审片项目创建成功！', 'success');
+                            navigate('/');
+                        } else {
+                            const err = res?.message || res?.error || JSON.stringify(res);
+                            showToast('❌ ' + err, 'error');
+                            btn.disabled = false; progress.classList.add('hidden');
+                        }
+                    } catch(e) {
+                        showToast('❌ ' + (e?.message || e), 'error');
+                        btn.disabled = false; progress.classList.add('hidden');
                     }
                 } catch (err) {
                     showToast('' + (err?.message || err || '操作失败'), 'error');
