@@ -343,7 +343,6 @@
         //  AI Chat Completion
         // ============================================================
         async function aiChat(systemPrompt, userMessage, config) {
-            const url = `${config.baseUrl}/chat/completions`;
             const body = {
                 model: config.model,
                 messages: [
@@ -353,21 +352,45 @@
                 temperature: 0.3,
                 max_tokens: 4096
             };
-            const resp = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${config.apiKey}`
-                },
-                body: JSON.stringify(body)
-            });
-            if (!resp.ok) {
-                const errText = await resp.text();
-                throw new Error(`AI API 错误 (${resp.status}): ${errText}`);
+            
+            // Use direct URL first, fallback to CORS proxy
+            const directUrl = config.baseUrl + '/chat/completions';
+            const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(directUrl);
+            
+            // Try direct first
+            let lastError = null;
+            for (const url of [directUrl, proxyUrl]) {
+                try {
+                    const resp = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + config.apiKey
+                        },
+                        body: JSON.stringify(body)
+                    });
+                    if (!resp.ok) {
+                        const errText = await resp.text();
+                        // If this is direct URL and failed, try proxy
+                        if (url === directUrl) {
+                            lastError = new Error('AI API 错误 (' + resp.status + '): ' + errText);
+                            continue;
+                        }
+                        throw new Error('AI API 错误 (' + resp.status + '): ' + errText);
+                    }
+                    const data = await resp.json();
+                    const content = data.choices?.[0]?.message?.content || '';
+                    if (content) return content;
+                } catch(e) {
+                    if (url === directUrl) {
+                        lastError = e;
+                        console.warn('Direct AI API failed, trying CORS proxy:', e.message);
+                        continue;
+                    }
+                    throw e;
+                }
             }
-            const data = await resp.json();
-            const content = data.choices?.[0]?.message?.content || '';
-            return content;
+            throw lastError || new Error('AI API 不可用');
         }
 
         async function aiChatWithJSON(systemPrompt, userMessage, config) {
