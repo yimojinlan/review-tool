@@ -171,8 +171,8 @@
                 </div>
             </div>
             <div class="mt-6 flex justify-end space-x-3">
-                <button onclick="closeApiConfig()" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-smooth">取消</button>
-                <button onclick="saveApiConfig()" class="gradient-brand text-white px-5 py-2 rounded-xl text-sm font-medium hover-lift shadow-soft">保存配置</button>
+                <button onclick="closeApiConfig()" class="px-4 py-2.5 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition-smooth" style="color:#4b5563!important;">✕ 取消</button>
+                <button onclick="saveApiConfig()" class="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium shadow-soft" style="color:#ffffff!important;">✓ 保存配置</button>
             </div>
         </div>
     </div>
@@ -196,7 +196,7 @@
                     <button onclick="openApiConfig()" class="p-2 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-smooth" title="AI 配置">
                         <span class="text-lg">⚙</span>
                     </button>
-                    <button onclick="navigate('/new')" class="gradient-brand text-white px-4 py-2 rounded-xl text-sm font-medium hover-lift hover-glow flex items-center space-x-1.5 shadow-soft">
+                    <button onclick="navigate('/new')" class="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover-lift hover-glow flex items-center space-x-1.5 shadow-soft">
                         <span class="text-base leading-none">+</span>
                         <span>新建审片</span>
                     </button>
@@ -530,7 +530,7 @@
                         </div>
                         <h3 class="text-lg font-medium text-gray-900 mb-2">页面加载出错</h3>
                         <p class="text-gray-500 mb-4">${err.message}</p>
-                        <button onclick="navigate('/')" class="gradient-brand text-white px-4 py-2 rounded-lg text-sm">返回首页</button>
+                        <button onclick="navigate('/')" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm">返回首页</button>
                     </div>
                 `;
             }
@@ -553,7 +553,7 @@
                             </h1>
                             <p class="mt-1.5 text-gray-500 text-sm">共 ${projects.length} 个项目</p>
                         </div>
-                        <button onclick="navigate('/new')" class="gradient-brand text-white px-5 py-2.5 rounded-xl text-sm font-medium hover-lift hover-glow flex items-center space-x-1.5 shadow-soft whitespace-nowrap">
+                        <button onclick="navigate('/new')" class="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover-lift hover-glow flex items-center space-x-1.5 shadow-soft whitespace-nowrap">
                             <span class="text-base leading-none">+</span>
                             <span>新建审片</span>
                         </button>
@@ -600,7 +600,7 @@
                     </div>
                     <div class="flex items-center justify-center space-x-4">
                         <button onclick="openApiConfig()" class="px-4 py-2.5 rounded-xl text-sm font-medium bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition-smooth">⚙ 先配置API</button>
-                        <button onclick="navigate('/new')" class="gradient-brand text-white px-6 py-2.5 rounded-xl text-sm font-medium hover-lift">📂 创建第一个项目</button>
+                        <button onclick="navigate('/new')" class="bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-medium hover-lift">📂 创建第一个项目</button>
                     </div>
                 </div>
                 ` : `
@@ -680,7 +680,7 @@
                         </div>
                         <div class="flex items-center space-x-3 pt-2">
                             <button type="submit"
-                                class="gradient-brand text-white px-6 py-2.5 rounded-xl text-sm font-medium hover-lift hover-glow flex items-center space-x-1.5 shadow-soft disabled:opacity-50 disabled:cursor-not-allowed"
+                                class="bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-medium hover-lift hover-glow flex items-center space-x-1.5 shadow-soft disabled:opacity-50 disabled:cursor-not-allowed"
                                 id="submit-btn">
                                 <span class="text-base leading-none">✓</span>
                                 <span>提交审片</span>
@@ -1192,13 +1192,13 @@
                 <!-- Action Buttons -->
                 <div class="mt-4 pt-4 border-t border-gray-100 flex flex-wrap gap-2">
                     ${project.status === 'pending' || project.status === 'reviewing' ? `
-                    <button onclick="startReview(${project.id})" class="gradient-warm text-white px-4 py-2 rounded-xl text-sm font-medium hover-lift shadow-soft flex items-center space-x-1.5">
+                    <button onclick="startReview(${project.id})" class="bg-amber-500 text-white" style="color:#ffffff!important;" px-4 py-2 rounded-xl text-sm font-medium hover-lift shadow-soft flex items-center space-x-1.5">
                         <span class="text-base">▶</span>
                         <span>${project.status === 'reviewing' ? '重新开始AI审片' : '启动AI审片'}</span>
                     </button>
                     ` : ''}
                     ${project.status === 'ai_done' ? `
-                    <button onclick="completeReview(${project.id})" class="bg-green-500 text-white px-4 py-2 rounded-xl text-sm font-medium hover-lift shadow-soft flex items-center space-x-1.5">
+                    <button onclick="completeReview(${project.id})" class="bg-green-500 text-white" style="color:#ffffff!important;" px-4 py-2 rounded-xl text-sm font-medium hover-lift shadow-soft flex items-center space-x-1.5">
                         <span class="text-base">✓</span>
                         <span>标记已完成</span>
                     </button>
