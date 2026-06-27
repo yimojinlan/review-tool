@@ -330,7 +330,7 @@
             }
             // Fallback: split by double newlines
             if (scenes.length < 2) {
-                scenes = text.split(/\n\s*\n/).filter(s => s.trim().length > 50);
+                scenes = text.split(/\n\s*\n/).filter(s => s.trim().length > 10);
             }
             // If still too few, treat whole text as one scene
             if (scenes.length < 1) scenes = [text];
@@ -888,7 +888,7 @@
                 // Get script text
                 let scriptText = '';
                 // Try stored text first (from 'reviewer_notes' - uploaded during project creation)
-                if (project.reviewer_notes && project.reviewer_notes.length > 50) {
+                if (project.reviewer_notes && project.reviewer_notes.trim().length > 5) {
                     scriptText = project.reviewer_notes;
                 }
                 if (!scriptText && project.script_file && project.script_file.length > 0) {
@@ -903,7 +903,7 @@
                     }
                 }
 
-                if (!scriptText || scriptText.trim().length < 10) {
+                if (!scriptText || scriptText.trim().length < 5) {
                     showToast('无法读取剧本内容，请确认剧本文件格式正确', 'error');
                     await client.db.from('projects').update()
                         .set({ status: 'pending' }).eq('id', projectId);
